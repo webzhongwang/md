@@ -1,0 +1,371 @@
+<!--
+    Powered By nodeppt - This is probably the best web presentation tool so far!
+    version: 1.4.5
+    site: https://github.com/ksky521/nodeppt
+    date: 
+-->
+<!doctype html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>nodeppt markdown - By </title>
+    <link rel="stylesheet" media="all" href="./css/nodeppt.css">
+    <link rel="stylesheet" media="only screen and (max-device-width: 480px)" href="./css/phone.css">
+    
+    <link rel="stylesheet" href="./js/highlight/styles/monokai_sublime.css">
+    <link rel="stylesheet" href="./css/font-awesome.css">
+    
+<link rel="stylesheet" href="./css/theme.moon.css">
+</head>
+<body>
+<div class="slides">
+    <slides id="container">
+        <slide class="slide"><section class="slide-wrapper"><article class="flexbox vcenter">
+<h1>浏览器缓存浅析</h1>
+<h6>作者：<strong>徐德明</strong></h6>
+
+</article></section></slide>
+<slide class="slide"><section class="slide-wrapper"><article class="flexbox vcenter">
+<h1>目录</h1>
+<ul>
+<li>缓存的介绍<ul>
+<li>缓存的作用</li>
+<li>缓存的分类</li>
+</ul>
+</li>
+<li>浏览器缓存的特点</li>
+<li>浏览器缓存策略图</li>
+<li>浏览器缓存协议头介绍<ul>
+<li>Expires</li>
+<li>Cache-Control</li>
+<li>Last-Modified / If-Modified-Since</li>
+<li>ETag / If-None-Match</li>
+</ul>
+</li>
+<li>Etag出现的必要性</li>
+<li>缓存的优先级、强制不缓存及更新缓存</li>
+<li>浏览器缓存常规设置</li>
+<li>浏览器缓存demo</li>
+</ul>
+
+</article></section></slide>
+<slide class="slide"><section class="slide-wrapper"><article class="flexbox vcenter">
+<h1>缓存的介绍</h1>
+<p><code>缓存的作用：</code></p>
+<ul>
+<li>加快应用的打开速度，提升用户体验</li>
+<li>节省带宽</li>
+<li>减少对源服务器的压力</li>
+</ul>
+<p><code>缓存的分类：</code></p>
+<ul>
+<li><strong>DNS缓存</strong>：避免每次都解析域名；实际中我们会将CDN域名预解析，如：<code>&lt;link rel=&quot;dns-prefetch&quot; href=&quot;//xxx.com/&quot;&gt;</code></li>
+<li><strong>CDN内容分发缓存</strong>：避免每次远距离、跨机房、跨运营商等获取静态资源甚至回源</li>
+<li><strong>Web服务器、反向代理缓存（如：Nginx、Apache、Tomcat等）</strong>：避免每次访问源服务器</li>
+<li><strong>数据库缓存（如Redis）</strong>：减少后端数据库的压力</li>
+<li><strong>终端缓存（如：浏览器缓存、C/S端缓存等）</strong>：减少http请求</li>
+<li>etc...</li>
+</ul>
+
+</article></section></slide>
+<slide class="slide"><section class="slide-wrapper"><article class="flexbox vcenter">
+<h1>浏览器缓存的特点</h1>
+<ul>
+<li>因为web应用都是B/S架构，大多基于http协议，所以浏览器缓存是和http协议相关的，不同的协议版本有区别</li>
+<li>不同的浏览器、同样浏览器的不同版本对缓存的处理有点区别，比如有的浏览器是from cache，有的是304</li>
+<li>缓存是保存在浏览器中的；所以同一个浏览器，不管新开tab或者重启都是from cache或者304；</li>
+</ul>
+
+</article></section></slide>
+<slide class="slide"><section class="slide-wrapper"><article class="flexbox vcenter">
+<h1>浏览器缓存策略图</h1>
+<img src="http://image.techweb.com.cn/upload/roll/2016/01/05/201601055112_3592.jpg" alt="img">
+
+</article></section></slide>
+<slide class="slide"><section class="slide-wrapper"><article class="flexbox vcenter">
+<h1>浏览器缓存协议头介绍</h1>
+<ul>
+<li><p><strong>Expires</strong></p>
+<ul>
+<li>设置资源的过期时间</li>
+</ul>
+</li>
+<li><p><strong>Cache-Control</strong></p>
+<ul>
+<li>设置资源的缓存时间</li>
+</ul>
+</li>
+<li><p><strong>Last-Modified / If-Modified-Since</strong></p>
+<ul>
+<li>设置资源的最后修改时间</li>
+</ul>
+</li>
+<li><p><strong>ETag / If-None-Match</strong></p>
+<ul>
+<li>设置资源的内容hash</li>
+</ul>
+</li>
+<li><p><strong>etc...</strong></p>
+<ul>
+<li>比如Age头，应用不是很广泛，暂不讨论</li>
+</ul>
+</li>
+</ul>
+
+</article></section></slide>
+<slide class="slide"><section class="slide-wrapper"><article class="flexbox vcenter">
+<h1>Expires</h1>
+<ul>
+<li><code>简介：</code><ul>
+<li>其值为某个日期，规定这个日期之前都返回缓存，不请求服务器；</li>
+<li>无http请求</li>
+<li>Expires = max-age + &quot;每次下载时的当前的request时间&quot;，所以一旦重新下载的页面后，expires就重新计算一次</li>
+</ul>
+</li>
+<li><code>缺点：</code><ul>
+<li>没过设置的时间时，URI没变化时，就算资源更新了，还是直接from cache</li>
+<li>其值为服务器端的时间，但是request的时间为终端时间，如果俩者时间相差很大(比如更改客户端时间)，那么误差就很大；所以Expires都要和Cache-Control配合使用</li>
+</ul>
+</li>
+<li><code>例子：</code><ul>
+<li>Expires: Mon, 08 Jan 2018 03:24:01 GMT</li>
+</ul>
+</li>
+</ul>
+
+</article></section></slide>
+<slide class="slide"><section class="slide-wrapper"><article class="flexbox vcenter">
+<h1>Cache-Control</h1>
+<ul>
+<li><code>简介：</code><ul>
+<li><strong>http/1.1</strong>规范定义，其值为秒数，规定资源缓存多少秒，存储的是更新间隔；</li>
+<li>无http请求</li>
+<li>会和Expires配合使用以保证准确性；</li>
+</ul>
+</li>
+<li><code>缺点：</code><ul>
+<li>同样有Expires一样的缺点：没过设置的时间时，URI没变化时，就算资源更新了，还是直接from cache</li>
+</ul>
+</li>
+<li><code>例子：</code><ul>
+<li>Cache-Control:max-age=15552000</li>
+</ul>
+</li>
+</ul>
+
+</article></section></slide>
+<slide class="slide"><section class="slide-wrapper"><article class="flexbox vcenter">
+<h1>Last-Modified</h1>
+<ul>
+<li><code>简介：</code><ul>
+<li>对应请求头中的<strong>If-Modified-Since</strong>;</li>
+<li>其值是某个日期，表示文档的最后修改时间;</li>
+<li>有http请求，若最后修改时间没变，直接返回304，只返回头部，不返回资源body，以节省带宽;</li>
+</ul>
+</li>
+<li><code>流程：</code><ul>
+<li>第一次请求时，服务器会将资源的最后修改时间返回给浏览器，这时浏览器会将其保存，再请求时，浏览器会发送<strong>If-Modified-Since</strong>到服务器进行对比，没变化返回304，否则返回200</li>
+</ul>
+</li>
+<li><code>缺点：</code><ul>
+<li>会影响性能，因为每次请求后端都需要获取文件夹的最后修改时间</li>
+</ul>
+</li>
+<li><code>例子：</code><ul>
+<li>Last-Modified:Wed, 22 Nov 2017 03:54:37 GMT</li>
+</ul>
+</li>
+</ul>
+
+</article></section></slide>
+<slide class="slide"><section class="slide-wrapper"><article class="flexbox vcenter">
+<h1>ETag</h1>
+<ul>
+<li><code>简介：</code><ul>
+<li>对应请求头中的<strong>If-None-Match</strong>;</li>
+<li>其值是资源内容(全部内容或者部分内容)的hash值；</li>
+<li>有http请求，若资源内容没变，直接返回304，只返回头部，不返回资源body，以节省带宽;</li>
+</ul>
+</li>
+<li><code>流程：</code><ul>
+<li>第一次请求时，服务器会对资源内容进行hash，并把其传给浏览器，这时浏览器会将其保存，再请求时，浏览器会发送<strong>If-None-Match</strong>到服务器进行对比，没变化返回304，否则返回200</li>
+</ul>
+</li>
+<li><code>缺点：</code><ul>
+<li>会影响性能，因为每次请求后端都需要读取文件内容并hash</li>
+</ul>
+</li>
+<li><code>例子：</code><ul>
+<li>Etag:QJ8ihycuJKpVTLT5xiQQhNT1Iec=</li>
+</ul>
+</li>
+</ul>
+
+</article></section></slide>
+<slide class="slide"><section class="slide-wrapper"><article class="flexbox vcenter">
+<h1>Etag出现的必要性</h1>
+<p><code>Last-Modified已经足以让浏览器知道本地的缓存副本是否足够新，为什么还需要Etag？</code></p>
+<ul>
+<li><strong>Last-Modified</strong>标注的最后修改只能精确到秒级，如果资源在1秒内修改多次，它将不能准确标注资源的新鲜度</li>
+<li>如果资源被改错后再回改成原来，这时资源内容并没有任何变化，但<strong>Last-Modified</strong>却改变了，导致文件没法使用缓存</li>
+<li>有可能存在服务器没有准确获取文件修改时间，或者与代理服务器（如Nginx）时间不一致等情形</li>
+<li>补充（受益于老板指导）：Etag更适用于动态生成又不太方便的静态化的资源</li>
+</ul>
+
+</article></section></slide>
+<slide class="slide"><section class="slide-wrapper"><article class="flexbox vcenter">
+<h1>缓存的优先级、强制不缓存及更新缓存</h1>
+<p><code>优先级</code></p>
+<ul>
+<li>Cache-Control &gt; Expires &gt; ETag / Last-Modified</li>
+<li>Last-Modified与ETag同时使用时，浏览器会同时发送If-Modified-Since和If-None-Match，按照http/1.1规范，服务端必须两个都验证通过后才能返回304</li>
+</ul>
+<p><code>强制不缓存</code></p>
+<ul>
+<li><strong>Expires: 0</strong> &amp;&amp; <strong>Cache-Control: &#39;no-cache,no-store&#39;</strong></li>
+<li>动态给资源添加版本控制，如：&#39;index.js?v=&#39; + Date.now()</li>
+</ul>
+<p><code>强制更新缓存</code></p>
+<ul>
+<li>如果文件变化了，我们可以给资源加版本号强制浏览器请求服务器(此时浏览器一定会下载资源返回200，因为URI变更后浏览器会当其为一个新资源)</li>
+</ul>
+
+</article></section></slide>
+<slide class="slide"><section class="slide-wrapper"><article class="flexbox vcenter">
+<h1>浏览器缓存常规设置</h1>
+<ol>
+<li>首先设置<code>Expires</code> 和 <code>Cache-Control</code>，可以直接from cache (from memory cache 或 from disk cache），不用http request；<ul>
+<li><strong>from memory cache</strong>直接从内存读取缓存，从chrome中看，其请求时间都为0；退出进程时（关闭浏览器），数据会被清空</li>
+<li><strong>from disk cache</strong>是从硬盘读取缓存，从chrome中看，其请求时间都大于0；退出进程时（关闭浏览器），数据不会被清空</li>
+</ul>
+</li>
+<li>设置<code>Last-Modified</code><ul>
+<li>Expires和Cache-Control只能控制资源缓存多久，但是过了缓存时间，资源还是有可能没变化，所以为了节省带宽，需要配合Last-Modified / ETag使用，这样没变化时就可以直接返回304了</li>
+</ul>
+</li>
+</ol>
+<p><code>Tips:</code> <strong>获取文件上次修改时间的消耗比拿到整个数据的消耗要小的多，所以很多时候只要Last-Modified就基本可以了，特殊情况采用Etag</strong></p>
+
+</article></section></slide>
+<slide class="slide"><section class="slide-wrapper"><article class="flexbox vcenter">
+<h1>浏览器缓存demo</h1>
+<p><code>常规缓存设置 测试</code></p>
+<ol>
+<li>更改Mid框架中的配置文件，debug改为false</li>
+<li>将静态文件服务器jserver.js中的maxAge改为20（秒）</li>
+<li>启动Mid框架</li>
+<li>观察network：<ul>
+<li>第一次为200（第一次请求下载资源）</li>
+<li>第二为from cache（因为设置了Expires和Cache-Control）</li>
+<li>等待20秒后，刷新浏览器，此时静态资源都变成304了（此时Cache-Control超过了20秒，缓存过时了，浏览器不会from cache，而会请求服务器，但是资源没变化，所以命中了Last-Modified，返回304）</li>
+</ul>
+</li>
+</ol>
+
+</article></section></slide>
+<slide class="slide"><section class="slide-wrapper"><article class="flexbox vcenter">
+<h1>浏览器缓存demo</h1>
+<p><code>Etag 测试</code></p>
+<ol>
+<li>node node.js</li>
+<li>打开浏览器观察，第一次应该返回200，response headers中有Etag字段，request headers中没有If-None-Match字段</li>
+<li>刷新页面，返回304，response headers中没有Etag字段，request headers中有If-None-Match字段，其值是第一次Etag的值</li>
+<li>改变test.js的内容，再刷新页面，返回200，代表重新返回内容了，这时response headers中有Etag字段，但是值变了，request headers中有If-None-Match字段，其值还是第一次返回的Etag的值，两个值不一样</li>
+<li>在刷新页面，结果和第三步一样</li>
+</ol>
+
+</article></section></slide>
+<slide class="slide"><section class="slide-wrapper"><article class="flexbox vcenter">
+<h1>Q &amp; A</h1>
+<style>
+p{
+    text-align: left;
+}
+img{
+    display: block;
+    width: 70%;
+    margin: 0 auto;
+}
+ul ul {
+    margin-top: 0;
+}
+ul li{
+    line-height: 1.6em;
+}
+</style>
+</article></section></slide>
+        
+
+        <!-- <slide class="slide logoslide dark nobackground">
+            <article class="flexbox vcenter">
+                <h2 style="color: white;">Powered By nodeppt v1.4.5</h2>
+            </article>
+        </slide> -->
+        <div class="slideTip" id="tip"></div>
+    </slides>
+</div>
+<canvas id="drawBoard" class="draw-board" width="900" height="700"></canvas>
+<div class="progress"><span id="progress"></span></div>
+<div id="_buttons">
+    <div class="_btn-box" id="_btn-box" style="display:none;">
+        <button class="fa fa-arrow-circle-left" id="_btn-prev"></button>
+        <button class="fa fa-arrow-circle-right" id="_btn-next"></button>
+        <button class="fa fa-paint-brush" id="_btn-brush"></button>
+        <button class="fa fa-compress" id="_btn-overview" data-toggle="fa fa-expand"></button>
+    </div>
+    <button class="fa fa-bars" id="_btn-bar"  data-toggle="fa fa-close"></button>
+</div>
+<script src="./js/mixjs/lib/mix.0.3.0.min.js"></script>
+<script>
+    var ASSET_RELATIVE_DIR = ".";
+</script>
+<script>
+var base = location.protocol + '//' + location.host;
+
+var path = (location.pathname + '#').split('/').filter(function(v){
+    return !!v;
+});
+path.pop();
+path = path.join('/');
+if (typeof ASSET_RELATIVE_DIR === 'string') {
+    path = path + '/' + ASSET_RELATIVE_DIR;
+}
+MixJS.config({
+    baseURL: [ base, path, 'js'].join('/')+'/'
+});
+
+</script>
+<script src="./js/mixjs/lib/event/broadcast.js"></script>
+<script src="./js/nodeppt.js"></script>
+<script>
+Slide.init({
+    containerID: 'container',
+    drawBoardID: 'drawBoard',
+    slideClass: '.slide',
+    buildClass: '.build',
+    progressID: 'progress',
+    transition: 'move',
+    width: 1100,
+    dir: './',
+    
+    //打开下面的注释就开启postMessage方式
+    //访问网址127.0.0.1:8080/ppt/demo#client
+    control:{
+        type: 'postMessage',
+        args:{
+            isControl:  false
+        }
+    },
+    
+    tipID: 'tip'
+});
+MixJS.loadJS('highlight/highlight.pack.js',function(){
+    hljs.tabReplace = '  ';
+    hljs.initHighlightingOnLoad();
+});
+</script>
+
+
+<!--placeholder-->
+</body>
+</html>
